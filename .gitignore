@@ -209,4 +209,3 @@ __marimo__/
 __pycache__/
 .DS_Store
 media/
-*.pt
