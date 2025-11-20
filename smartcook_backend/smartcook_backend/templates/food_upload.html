@@ -1,0 +1,199 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <!-- 반응형 웹을 위한 viewport 설정 - 디바이스 너비에 맞춰 화면 크기 조정 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SMARTCOOK - 레시피 탐색</title>
+  
+  <!-- 기본 웹 스타일 -->
+  <link rel="stylesheet" href="{% static 'css/upload.css' %}" />
+  <!-- 태블릿/모바일 반응형 스타일 -->
+  <link rel="stylesheet" href="{% static 'css/resposive_ta_mo.css' %}" />
+</head>
+<body>
+  <main>
+    <!-- 반응형 네비게이션 바 -->
+    <div class="main-navbar">
+      <!-- 왼쪽 -->
+      <div class="main-nav-left">
+        <a href="{% url 'mainpage' %}" class="logo">SMARTCOOK</a>
+      </div>
+      
+      <!-- 모바일용 햄버거 메뉴 버튼 -->
+      <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    
+      <!-- 오른쪽 -->
+      <div class="main-nav-right">
+        <form method="POST" action="{% url 'logout' %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="logout-button">Logout</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 모바일용 드롭다운 메뉴 -->
+    <div class="mobile-nav-menu" id="mobileNavMenu">
+      <a href="{% url 'food_upload' %}">Recipe</a>
+      <a href="{% url 'upload' %}">Picture</a>
+      <a href="{% url 'live_page' %}">Realtime</a>
+      <a href="{% url 'mainpage' %}">Home</a>
+    </div>
+
+    <!-- 음식명 검색 -->
+    <div class="btn-group">
+      <button class="btn active-btn">음식으로 탐색하기</button>
+      <a href="{% url 'upload' %}" class="btn">재료로 탐색하기</a>
+      <a href="{% url 'live_page' %}" class="btn">실시간으로 탐색하기</a>
+    </div>
+
+    <div class="container" id="food-section">
+      <a href="{% url 'mainpage' %}" class="home-link">← Home</a>
+      <form action="{% url 'food_upload' %}" method="GET">
+        <div class="form-box">
+          <label for="food-name">음식명을 입력해주세요</label>
+          <div class="input-wrapper">
+            <input type="text" id="food-name" name="q" value="{{ query }}" required />
+            <button type="submit">
+              <img src="{% static 'images/search-icon.png' %}" alt="돋보기 아이콘" />
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- 검색 결과 -->
+    {% if query %}
+    <section class="recommend" id="recipe-section" style="display:block;">
+      {% if recipes %}
+        <div class="result-header">
+          <p>{{ query }}에 대한 추천 레시피 ({{ recipes.paginator.count }}개)</p>
+
+          <div class="sort-options">
+            <a href="?q={{ query }}&sort=match"
+               class="sort-link {% if sort == 'match' %}active{% endif %}">관련도 순</a>
+            <a href="?q={{ query }}&sort=ingredients"
+               class="sort-link {% if sort == 'ingredients' %}active{% endif %}">재료 적은 순</a>
+          </div>
+        </div>
+
+        <div class="recipe-list" id="recipe-list">
+          {% for recipe in recipes %}
+            {% if recipe.ingredients %}
+              <div class="recipe-card">
+                <img src="{{ recipe.image }}" alt="{{ recipe.title }}">
+                <h5>{{ recipe.title }}</h5>
+
+                <h6 style="text-align: center;">재료</h6>
+                <ul style="list-style-type: none; padding-left: 0;">
+                  {% for ing in recipe.ingredients %}
+                    <li>{{ ing }}</li>
+                  {% endfor %}
+                </ul>
+
+                {# ✅ 음식명 검색은 "추가 재료 선택 → 장바구니" 플로우 사용 #}
+                {% with "ingredients-"|add:recipe.id as script_id %}
+                  {{ recipe.ingredients|json_script:script_id }}
+                {% endwith %}
+
+                <a href="javascript:void(0)"
+                   class="btn-category-done show-extra-btn"
+                   data-recipe-id="{{ recipe.id }}">
+                   요리하러 가기
+                </a>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        <!-- 페이지네이션 (10개 단위 그룹) -->
+        {% if recipes.has_other_pages %}
+          <div class="pagination">
+            {% if recipes.has_previous %}
+              <a href="?q={{ query }}&sort={{ sort }}&page={{ recipes.previous_page_number }}" class="page-btn">&lt;</a>
+            {% else %}
+              <span class="page-btn disabled">&lt;</span>
+            {% endif %}
+
+            {% for num in page_range %}
+              {% if recipes.number == num %}
+                <span class="page-btn active">{{ num }}</span>
+              {% else %}
+                <a href="?q={{ query }}&sort={{ sort }}&page={{ num }}" class="page-btn">{{ num }}</a>
+              {% endif %}
+            {% endfor %}
+
+            {% if recipes.has_next %}
+              <a href="?q={{ query }}&sort={{ sort }}&page={{ recipes.next_page_number }}" class="page-btn">&gt;</a>
+            {% else %}
+              <span class="page-btn disabled">&gt;</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% else %}
+        <p>‘{{ query }}’에 해당하는 레시피를 찾을 수 없습니다.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- ✅ 추가재료 섹션 (hover/active 효과 적용됨) -->
+    <section class="extra" id="extra-section" style="display:none;">
+      <div class="extra-header">
+        <h4 class="extra-title">추가 재료 선택</h4>
+        <span class="skip-extra" id="skip-extra-btn">
+          추가 재료 없음 →
+        </span>
+      </div>
+
+      <div class="chip-box" id="extra-ingredients"></div>
+
+      <div class="cart-wrapper">
+        <button class="cart-btns" id="go-cart-btn" style="margin-right: 10px;">장바구니로 이동</button>
+        <button class="cart-btns" id="go-detail-btn">레시피 상세보기</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="feedback-footer">
+    © SmartCook. All rights reserved.
+  </div>
+
+  <script src="{% static 'js/script.js' %}"></script>
+  
+  <!-- 모바일 햄버거 메뉴 JavaScript -->
+  <script>
+  (function () {
+    // 모바일 햄버거 메뉴 토글 기능
+    function initMobileMenu() {
+      const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+      const mobileNavMenu = document.getElementById('mobileNavMenu');
+      
+      if (mobileMenuBtn && mobileNavMenu) {
+        mobileMenuBtn.addEventListener('click', function() {
+          // 햄버거 버튼 애니메이션 토글
+          mobileMenuBtn.classList.toggle('active');
+          // 모바일 메뉴 표시/숨김 토글
+          mobileNavMenu.classList.toggle('active');
+        });
+
+        // 메뉴 외부 클릭 시 메뉴 닫기
+        document.addEventListener('click', function(e) {
+          if (!mobileMenuBtn.contains(e.target) && !mobileNavMenu.contains(e.target)) {
+            mobileMenuBtn.classList.remove('active');
+            mobileNavMenu.classList.remove('active');
+          }
+        });
+      }
+    }
+
+    // DOM 로드 완료 시 초기화 함수 실행
+    document.addEventListener('DOMContentLoaded', initMobileMenu);
+  })();
+  </script>
+</body>
+</html>

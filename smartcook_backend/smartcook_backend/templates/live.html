@@ -1,0 +1,1215 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMARTCOOK - 실시간 탐색</title>
+  
+  <link rel="stylesheet" href="{% static 'css/upload.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/resposive_ta_mo.css' %}" />
+  <style>
+    /* 웹에서 더 큰 카메라 영역 */
+    @media (min-width: 769px) {
+      .upload-form-box {
+        max-width: 1200px !important;
+      }
+      .camera-wrapper {
+        padding-top: 45% !important; /* 16:9보다 더 넓게 */
+      }
+    }
+    
+    /* 모바일에서는 기존 크기 유지 */
+    @media (max-width: 768px) {
+      .upload-form-box {
+        max-width: 480px !important;
+      }
+      .camera-wrapper {
+        padding-top: 56.25% !important; /* 16:9 비율 유지 */
+      }
+    }
+    
+    /* 카메라 컨트롤 버튼 스타일 */
+    .camera-controls button:hover {
+      background: rgba(255,255,255,0.3) !important;
+    }
+    
+    /* 모바일 반응형을 제외한 나머지 반응형에서 전면/후면 버튼 숨기기 */
+    @media (min-width: 481px) {
+      #switch-camera {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <div class="main-navbar">
+      <div class="main-nav-left">
+        <a href="{% url 'mainpage' %}" class="logo">SMARTCOOK</a>
+      </div>
+      
+      <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    
+      <div class="main-nav-right">
+        <form method="POST" action="{% url 'logout' %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="logout-button">Logout</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="mobile-nav-menu" id="mobileNavMenu">
+      <a href="{% url 'food_upload' %}">Recipe</a>
+      <a href="{% url 'upload' %}">Picture</a>
+      <a href="{% url 'live_page' %}">Realtime</a>
+      <a href="{% url 'mainpage' %}">Home</a>
+    </div>
+
+    <div class="btn-group">
+      <a href="{% url 'food_upload' %}" class="btn">음식으로 탐색하기</a>
+      <a href="{% url 'upload' %}" class="btn">재료로 탐색하기</a>
+      <button class="btn active-btn">실시간으로 탐색하기</button>
+    </div>
+    
+    <div id="promo-section" class="upload-container">
+      <div class="upload-form-box" style="position: relative; width: 100%; max-width: 1200px; margin: 0 auto;">
+        <h2 class="upload-title" style="text-align: center;">실시간 재료 인식</h2>
+        <p style="text-align: center; color: #666; margin-bottom: 30px;">
+          카메라로 냉장고 속 재료를 비추면 AI가 자동으로 인식합니다
+        </p>
+        
+        <div class="promo-video-wrapper" style="position: relative; padding-top: 56.25%; border-radius: 12px; overflow: hidden; background: #f7f4f0; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-bottom: 30px;">
+          <video autoplay muted loop playsinline
+                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">
+            <source src="{% static 'videos/realtime.mp4' %}" type="video/mp4">
+            실시간 감지 데모 영상
+          </video>
+          
+          <div style="position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 10px 15px; border-radius: 20px; font-size: 14px;">
+            📹 실시간 재료 인식 데모
+          </div>
+        </div>
+        
+        <div style="text-align: center;">
+          <button id="start-detection-btn" class="start-btn" 
+                  style="background: #76b5c5; color: white; border: none; padding: 18px 40px; border-radius: 25px; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(118, 181, 197, 0.4); transition: all 0.3s ease;">
+            🚀 실시간 탐색 시작하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 모바일 전용 하단 고정 버튼 바 (카메라 레이어 아래) -->
+    <div id="mobile-camera-actions" style="display:none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1002;">
+      <div style="max-width: 1200px; margin: 0 auto; padding: 10px 12px; display: flex; gap: 10px; justify-content: space-between;">
+        <button id="mobile-return-home" style="flex:1; background:#ff6666; color:#fff; border:none; padding:14px 12px; border-radius:12px; font-weight:700;">🏠 처음으로</button>
+        <button id="mobile-fullscreen" style="flex:1; background:#444; color:#fff; border:none; padding:14px 12px; border-radius:12px; font-weight:700;">🔍 전체화면</button>
+        <button id="mobile-stop" style="flex:1; background:#76b5c5; color:#fff; border:none; padding:14px 12px; border-radius:12px; font-weight:700;">✅ 감지 완료</button>
+      </div>
+    </div>
+
+    <div id="permission-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center;">
+      <div class="permission-box" style="background: white; padding: 40px 30px; border-radius: 20px; text-align: center; max-width: 400px; margin: 0 20px;">
+        <h3 style="color: #76b5c5; margin-bottom: 20px; font-size: 24px;">📷 카메라 권한 필요</h3>
+        <p style="color: #666; margin-bottom: 30px; line-height: 1.6;">
+          냉장고 속 재료를 실시간으로 인식하기 위해<br>
+          카메라 접근 권한이 필요합니다
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: center;">
+          <button id="allow-camera-btn" 
+                  style="background: #76b5c5; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 16px; cursor: pointer; flex: 1; max-width: 120px;">
+            허용 (Allow)
+          </button>
+          <button id="cancel-camera-btn" 
+                  style="background: #ccc; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 16px; cursor: pointer; flex: 1; max-width: 120px;">
+            취소 (Cancel)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="camera-section" class="upload-container" style="display: none;">
+      <div class="upload-form-box" style="position: relative; width: 100%; max-width: 1200px; margin: 0 auto;">
+        <h2 class="upload-title" style="text-align: center;">실시간 재료 감지 중...</h2>
+        
+        <div class="camera-wrapper" style="position: relative; padding-top: 56.25%; border-radius: 12px; overflow: hidden; background: #f7f4f0; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+          
+          <video id="video" autoplay playsinline muted 
+                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 12px;"></video>
+          
+          <canvas id="overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+          
+          <div class="camera-controls" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 25px; display: flex; gap: 10px; z-index: 1000;">
+            <button id="switch-camera" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: background 0.3s; font-size: 14px;">
+              📷 전면/후면
+            </button>
+            <button id="stop-camera" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: background 0.3s; font-size: 14px;">
+              ✅ 감지 완료
+            </button>
+            <button id="fullscreen-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: background 0.3s; font-size: 14px;">
+              🔍 전체화면
+            </button>
+            <button id="return-home-btn" style="background: rgba(255,100,100,0.3); border: none; color: white; padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: background 0.3s; font-size: 14px;">
+              🏠 처음으로
+            </button>
+          </div>
+          
+          <div id="floating-ingredients" style="display: none; position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.9); padding: 20px; border-radius: 15px; max-width: 320px; min-width: 280px; z-index: 10001; backdrop-filter: blur(10px); border: 2px solid rgba(118, 181, 197, 0.5);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+              <h4 style="color: #76b5c5; margin: 0; font-size: 18px;">🔍 인식된 재료</h4>
+              <span id="selected-count" style="color: #76b5c5; font-size: 14px; background: rgba(118, 181, 197, 0.2); padding: 4px 8px; border-radius: 10px;">0개 선택</span>
+            </div>
+            
+            <div id="floating-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
+              </div>
+            
+            <div style="text-align: center;">
+              <button id="floating-complete-btn" style="background: #76b5c5; color: white; border: none; padding: 12px 25px; border-radius: 20px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(118, 181, 197, 0.4);">
+                🚀 선택 완료 (0개)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="recognized" id="ingredient-buttons" style="display:none;">
+      <h4 class="recognized-title">인식된 재료</h4>
+      <div class="chip-box" id="recognized-list">
+        </div>
+      <div class="confirm-wrapper">
+        <button type="button" id="toRecipeBtn" class="confirm-btn">선택 완료</button>
+      </div>
+    </section>
+
+    <section class="recommend" id="recipe-section" style="display:none;">
+     <div class="result-header">
+      <p id="recipe-header-text">인식된 재료에 대한 추천 레시피</p>
+      <div class="sort-options">
+        <a href="#" id="sort-match" class="active">관련도 순</a>
+        <a href="#" id="sort-ingredients">재료 적은 순</a>
+        </div>
+      </div>
+
+      <div class="recipe-list" id="recipe-list">
+
+    <!-- 동적으로 레시피들이 추가됨 -->
+      </div>
+
+    <!-- ✅ 페이지네이션 추가 -->
+    <div class="pagination" id="pagination"></div>
+
+    </section>
+
+    
+    <!-- ✅ 추가재료 선택 섹션 -->
+    <section class="extra" id="extra-section" style="display:none;">
+      <div class="extra-header">
+        <h4 class="extra-title">추가 재료 선택</h4>
+        <span class="small-text skip-extra" id="skip-extra-btn">추가 재료 없음 →</span>
+      </div>
+
+      <div class="chip-box" id="extra-ingredients"></div>
+
+      <div class="cart-wrapper">
+        <button class="cart-btns" id="go-cart-btn" style="margin-right: 10px;">장바구니로 이동</button>
+        <button class="cart-btns" id="go-detail-btn">레시피 상세보기</button>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="feedback-footer">
+    © SmartCook. All rights reserved.
+  </div>
+</body>
+<script>
+  function $(sel) { return document.querySelector(sel); }
+  function $all(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+  const extraSection = document.getElementById("extra-section");
+  const extraIngredientsBox = document.getElementById("extra-ingredients");
+
+  // ==========================================
+  // 캔버스 및 비디오 요소 가져오기
+  // ==========================================
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('overlay');
+  const ctx = overlay.getContext('2d');
+
+  // ... (기존의 다른 UI 요소 변수 선언은 동일) ...
+  const switchCameraBtn = document.getElementById('switch-camera');
+  const stopCameraBtn = document.getElementById('stop-camera');
+  const ingredientButtons = document.getElementById('ingredient-buttons');
+  const recognizedList = document.getElementById('recognized-list');
+  const toRecipeBtn = document.getElementById('toRecipeBtn');
+  const recipeSection = document.getElementById('recipe-section');
+  const recipeList = document.getElementById('recipe-list');
+  const recipeHeaderText = document.getElementById('recipe-header-text');
+  const detected = document.getElementById('detected');
+  let websocket = null;
+  let isStreaming = false;
+  let currentFacingMode = 'environment'; // 기본값: 후면 카메라
+  let detectedIngredients = new Set();   // 인식된 재료들을 저장
+  let currentSort = "match";             // 기본 정렬 기준 (관련도 순)
+  let currentPage = 1;                   // 현재 페이지               
+
+
+
+
+
+
+  // 새로운 UI 요소들
+
+  const promoSection = document.getElementById('promo-section');
+  const permissionModal = document.getElementById('permission-modal');
+  const cameraSection = document.getElementById('camera-section');
+  const startDetectionBtn = document.getElementById('start-detection-btn');
+  const allowCameraBtn = document.getElementById('allow-camera-btn');
+  const cancelCameraBtn = document.getElementById('cancel-camera-btn');
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
+  const returnHomeBtn = document.getElementById('return-home-btn');
+  
+  const floatingIngredients = document.getElementById('floating-ingredients');
+  const floatingList = document.getElementById('floating-list');
+  const floatingCompleteBtn = document.getElementById('floating-complete-btn');
+  const selectedCountSpan = document.getElementById('selected-count');
+  
+  let confirmedIngredients = new Set();
+  let rejectedIngredients = new Set();
+  let isFullscreenMode = false;
+  let needsRecalculation = false;
+
+  // 웹소켓 연결
+  function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/detect/`;
+    
+    websocket = new WebSocket(wsUrl);
+    
+    websocket.onopen = function(event) {
+      console.log('웹소켓 연결 성공');
+      startCamera();
+    };
+    
+    websocket.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+
+      // ==========================================
+      // ▼▼▼▼▼ 박스 위치 보정 로직 (핵심 수정) ▼▼▼▼▼
+      // ==========================================
+      if (data.detections || needsRecalculation) {
+        // needsRecalculation 플래그가 설정된 경우 캔버스 크기 재조정
+        if (needsRecalculation) {
+          overlay.width = overlay.clientWidth;
+          overlay.height = overlay.clientHeight;
+          needsRecalculation = false;
+        }
+        
+        // 1. 캔버스가 화면에 표시되는 실제 크기 (e.g., 800px, 450px)
+        const cW = overlay.clientWidth;
+        const cH = overlay.clientHeight;
+
+        // 2. 비디오 원본의 해상도 (e.g., 1280px, 720px)
+        const vW = video.videoWidth;
+        const vH = video.videoHeight;
+        
+        // 3. 캔버스 해상도를 화면 표시 크기와 일치시킴 (왜곡 방지)
+        if (overlay.width !== cW || overlay.height !== cH) {
+          overlay.width = cW;
+          overlay.height = cH;
+        }
+
+        // 4. 'object-fit: cover' 스케일링 및 오프셋 계산
+        const vAR = vW / vH; // 비디오 원본 비율
+        const cAR = cW / cH; // 캔버스(컨테이너) 표시 비율
+        
+        let scale, dx, dy;
+
+        if (vAR > cAR) {
+            // 비디오가 컨테이너보다 넓은 경우 (좌우가 잘림)
+            scale = cH / vH; // 높이에 맞춰 스케일링
+            dx = (cW - vW * scale) / 2; // X축 오프셋 (중앙 정렬)
+            dy = 0;
+        } else {
+            // 비디오가 컨테이너보다 길거나 같은 경우 (상하가 잘림)
+            scale = cW / vW; // 너비에 맞춰 스케일링
+            dx = 0;
+            dy = (cH - vH * scale) / 2; // Y축 오프셋 (중앙 정렬)
+        }
+
+        // 5. 이전 그림 지우기
+        ctx.clearRect(0, 0, cW, cH);
+
+        // 6. 스케일/오프셋이 적용된 좌표로 박스 그리기 (데이터가 있을 때만)
+        if (data.detections) {
+          data.detections.forEach(det => {
+            // 서버에서 받은 원본 비디오 기준 좌표
+            const [x1_video, y1_video, x2_video, y2_video] = det.box;
+            
+            // 화면(캔버스) 기준 좌표로 변환
+            const x1_canvas = x1_video * scale + dx;
+            const y1_canvas = y1_video * scale + dy;
+            const x2_canvas = x2_video * scale + dx;
+            const y2_canvas = y2_video * scale + dy;
+            
+            // (선택사항) 화면 밖으로 완전히 벗어난 박스는 그리지 않음
+            if (x2_canvas < 0 || x1_canvas > cW || y2_canvas < 0 || y1_canvas > cH) {
+                return;
+            }
+
+            const label = det.label;
+            const color = det.color || '#00A9FF'; // 서버에서 받은 색상 사용, 없으면 기본 파란색
+
+            // 1. 텍스트와 배경 먼저 그리기
+            ctx.font = 'bold 18px "Nanum Gothic", sans-serif';
+            const textWidth = ctx.measureText(label).width;
+            const textX = x1_canvas + 5;
+            const textY = y1_canvas > 20 ? y1_canvas - 5 : y1_canvas + 18;
+
+            // 텍스트 배경 설정 (클래스 고유 색상)
+            ctx.fillStyle = color;
+            ctx.fillRect(x1_canvas, textY - 20, textWidth + 10, 24);
+
+            // 텍스트 설정 (흰색)
+            ctx.fillStyle = 'white';
+            ctx.fillText(label, textX, textY);
+
+            // 2. 바운딩 박스 외곽선 나중에 그리기
+            ctx.strokeStyle = color; // 외곽선 색상은 클래스 고유 색상
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x1_canvas, y1_canvas, x2_canvas - x1_canvas, y2_canvas - y1_canvas);
+          });
+        }
+
+        // ==========================================
+        // ▲▲▲▲▲ 박스 위치 보정 로직 (수정 완료) ▲▲▲▲▲
+        // ==========================================
+        
+        // 기존 재료 목록 업데이트 로직 (동일)
+        if (data.detections) {
+          const detectedNames = data.detections.map(d => d.name);
+          updateDetectedIngredients(detectedNames);
+          if (isFullscreenMode) {
+              updateFloatingIngredients(detectedNames);
+          }
+        }
+      }
+      
+      // 최종 인식 결과 처리 (동일)
+      if (data.final_detections && data.final_detections.length > 0) {
+        showIngredientSection(data.final_detections);
+      }
+    };
+    
+    websocket.onclose = function(event) {
+      console.log('웹소켓 연결 종료');
+      ctx.clearRect(0, 0, overlay.width, overlay.height); // 연결 종료 시 캔버스 지우기
+      stopCamera();
+    };
+    
+    websocket.onerror = function(error) {
+      console.error('웹소켓 오류:', error);
+      alert('실시간 연결에 실패했습니다.');
+    };
+  }
+
+  // ==========================================
+  // 디바이스 방향(가로/세로) 클래스 토글 (전체화면 모드 지원 강화)
+  // ==========================================
+  const rootEl = document.documentElement;
+  function updateOrientationClass() {
+    const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+    if (isLandscape) {
+      rootEl.classList.add('landscape-mode');
+    } else {
+      rootEl.classList.remove('landscape-mode');
+    }
+    
+    // 전체화면 모드에서도 캔버스 크기 재조정
+    if (isFullscreenMode && overlay && video) {
+      setTimeout(() => {
+        overlay.width = overlay.clientWidth;
+        overlay.height = overlay.clientHeight;
+        // 가로모드 전환 시 비디오 크기도 재조정
+        if (video.videoWidth && video.videoHeight) {
+          // 박스 위치 보정 로직 재실행을 위한 플래그
+          needsRecalculation = true;
+        }
+        
+        // 가로모드 전체화면에서 플로팅 윈도우 위치 조정
+        if (floatingIngredients && isMobileView()) {
+          adjustFloatingWindowForLandscape();
+        }
+      }, 100);
+    }
+  }
+
+  // 가로모드 전체화면에서 플로팅 윈도우 위치 조정 함수
+  function adjustFloatingWindowForLandscape() {
+    if (!floatingIngredients || !isMobileView() || !isFullscreenMode) return;
+    
+    const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+    if (isLandscape) {
+      // 가로모드일 때 플로팅 윈도우 크기와 위치 조정
+      floatingIngredients.style.maxWidth = '280px';
+      floatingIngredients.style.maxHeight = '80vh';
+      floatingIngredients.style.top = '10px';
+      floatingIngredients.style.right = '10px';
+      floatingIngredients.style.fontSize = '12px';
+      floatingIngredients.style.padding = '12px';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', updateOrientationClass);
+  // 전체화면 모드에서도 방향 전환 감지 강화
+  window.addEventListener('orientationchange', () => setTimeout(updateOrientationClass, 300));
+  window.addEventListener('resize', () => setTimeout(updateOrientationClass, 100));
+  document.addEventListener('fullscreenchange', updateOrientationClass);
+
+  // ==========================================
+  // 카메라 시작/정지/프레임 전송 함수 (동일)
+  // ==========================================
+  
+  // 카메라 시작
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: currentFacingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      video.srcObject = stream;
+      isStreaming = true;
+      sendFrames();
+    } catch (err) {
+      console.error('카메라 접근 실패:', err);
+      alert('카메라 접근에 실패했습니다: ' + err.message);
+    }
+  }
+
+  // 카메라 정지
+  function stopCamera() {
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(track => track.stop());
+      video.srcObject = null;
+    }
+    isStreaming = false;
+  }
+
+  // 프레임 전송 (10fps)
+  function sendFrames() {
+    if (!isStreaming || !websocket || websocket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      const canvas = document.createElement('canvas');
+      // 전송할 프레임 해상도를 비디오 원본으로 설정
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const imageData = canvas.toDataURL('image/jpeg', 0.7); // 품질 약간 낮춰 전송량 감소
+      
+      websocket.send(JSON.stringify({
+        frame: imageData
+      }));
+    }
+
+    setTimeout(sendFrames, 100);
+  }
+
+  // ==========================================
+  // 재료 처리 및 레시피 추천 함수 (동일)
+  // ==========================================
+
+  // 인식된 재료 업데이트 (문자열 배열을 받음)
+  function updateDetectedIngredients(detections) {
+    detections.forEach(ingredient => {
+      if (ingredient && ingredient !== '알 수 없음') {
+        detectedIngredients.add(ingredient);
+      }
+    });
+  }
+
+  // 인식된 재료 섹션 표시
+  function showIngredientSection(finalDetections) {
+    finalDetections.forEach(ingredient => {
+      if (ingredient && ingredient !== '알 수 없음') {
+        detectedIngredients.add(ingredient);
+      }
+    });
+
+    if (detectedIngredients.size > 0) {
+      renderIngredientChips(Array.from(detectedIngredients));
+      ingredientButtons.style.display = 'block';
+      ingredientButtons.scrollIntoView({ behavior: 'smooth' });
+      if (mobileActionBar && isMobileView()) {
+        mobileActionBar.style.display = 'none';
+      }
+    }
+  }
+
+  // 재료 칩 렌더링
+  function renderIngredientChips(ingredients) {
+    recognizedList.innerHTML = '';
+    ingredients.forEach(ingredient => {
+      const label = document.createElement('label');
+      label.className = 'chip';
+      label.innerHTML = `
+        <input type="checkbox" class="chip-radio" name="q" value="${escapeHtml(ingredient)}" checked>
+        ${escapeHtml(ingredient)}
+      `;
+      recognizedList.appendChild(label);
+    });
+  }
+
+  // HTML 이스케이프 함수
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  async function getRecipeRecommendations(selectedIngredients, page = 1) {
+    try {
+      const query = selectedIngredients.map(q => `q=${encodeURIComponent(q)}`).join('&');
+      const response = await fetch(`/api/recipes/?${query}&sort=${currentSort}&page=${page}&limit=6`);
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      return data; // data.recipes, data.total_pages, data.total_count 사용
+    } catch (error) {
+      console.error('레시피 추천 오류:', error);
+      throw error;
+    }
+  }
+
+
+  function renderPagination(data, selectedIngredients) {
+  const pagination = document.getElementById("pagination");
+  pagination.innerHTML = "";
+
+  const totalPages = data.total_pages;
+  const pageRange = data.page_range || [];
+  const currentPage = data.current_page || 1;
+
+  if (!totalPages || totalPages <= 1) {
+    pagination.style.display = "none";
+    return;
+  }
+  pagination.style.display = "block";
+
+  // 이전 페이지 버튼
+  if (currentPage > 1) {
+    const prevBtn = document.createElement("a");
+    prevBtn.textContent = "<";
+    prevBtn.className = "page-btn";
+    prevBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const newData = await getRecipeRecommendations(selectedIngredients, currentPage - 1);
+      renderRecipes(newData.recipes);
+      renderPagination(newData, selectedIngredients);
+      recipeHeaderText.textContent =
+        `${selectedIngredients.join(', ')}에 대한 추천 레시피 (${newData.total_count}개)`;
+    });
+    pagination.appendChild(prevBtn);
+  } else {
+    const prevSpan = document.createElement("span");
+    prevSpan.textContent = "<";
+    prevSpan.className = "page-btn disabled";
+    pagination.appendChild(prevSpan);
+  }
+
+  // 모바일 감지
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  
+  // 페이지 번호 버튼들 (모바일: 5개, 데스크톱: 10개)
+  const maxPages = isMobile ? 5 : 10;
+  const startPage = Math.max(1, currentPage - Math.floor(maxPages / 2));
+  const endPage = Math.min(totalPages, startPage + maxPages - 1);
+  
+  // 모바일에서는 현재 페이지 기준으로 5개만 표시
+  const displayPages = isMobile ? 
+    Array.from({length: Math.min(maxPages, totalPages)}, (_, i) => startPage + i).filter(p => p <= totalPages) :
+    pageRange;
+
+  for (let num of displayPages) {
+    if (num === currentPage) {
+      const activeSpan = document.createElement("span");
+      activeSpan.textContent = num;
+      activeSpan.className = "page-btn active";
+      pagination.appendChild(activeSpan);
+    } else {
+      const btn = document.createElement("a");
+      btn.textContent = num;
+      btn.className = "page-btn";
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const newData = await getRecipeRecommendations(selectedIngredients, num);
+        renderRecipes(newData.recipes);
+        renderPagination(newData, selectedIngredients);
+        recipeHeaderText.textContent =
+          `${selectedIngredients.join(', ')}에 대한 추천 레시피 (${newData.total_count}개)`;
+      });
+      pagination.appendChild(btn);
+    }
+  }
+
+  // 다음 페이지 버튼
+  if (currentPage < totalPages) {
+    const nextBtn = document.createElement("a");
+    nextBtn.textContent = ">";
+    nextBtn.className = "page-btn";
+    nextBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const newData = await getRecipeRecommendations(selectedIngredients, currentPage + 1);
+      renderRecipes(newData.recipes);
+      renderPagination(newData, selectedIngredients);
+      recipeHeaderText.textContent =
+        `${selectedIngredients.join(', ')}에 대한 추천 레시피 (${newData.total_count}개)`;
+    });
+    pagination.appendChild(nextBtn);
+  } else {
+    const nextSpan = document.createElement("span");
+    nextSpan.textContent = ">";
+    nextSpan.className = "page-btn disabled";
+    pagination.appendChild(nextSpan);
+  }
+}
+
+  // 공통: 현재 체크된 재료
+  function getSelectedIngredients() {
+    return Array.from(document.querySelectorAll('#recognized-list input:checked'))
+      .map(el => el.value)
+      .filter(Boolean); 
+  }   
+
+  // 레시피 결과 렌더링
+  function renderRecipes(recipes) {
+    recipeList.innerHTML = '';
+    
+    if (recipes.length === 0) {
+      recipeList.innerHTML = '<div class="no-result"><p>인식된 재료로 만들 수 있는 레시피를 찾을 수 없습니다.</p></div>';
+      return;
+    }
+
+    recipes.forEach(recipe => {
+      const recipeCard = document.createElement('div');
+      recipeCard.className = 'recipe-card';
+      recipeCard.innerHTML = `
+        <img src="${escapeHtml(recipe.image)}" alt="${escapeHtml(recipe.title)}">
+        <h5>${escapeHtml(recipe.title)}</h5>
+        <h6 style="text-align: center;">재료</h6>
+        <ul style="list-style-type: none; padding-left: 0;">
+          ${recipe.ingredients.map(ing => `<li>${escapeHtml(ing)}</li>`).join('')}
+        </ul>
+        <a href="javascript:void(0)" 
+          class="btn-category-done show-extra-btn" 
+          data-recipe-id="${recipe.id}"
+          data-ingredients='${JSON.stringify(recipe.ingredients)}'>
+          요리하러 가기
+        </a>
+      `;
+
+
+      recipeList.appendChild(recipeCard);
+    });
+  }
+
+  // ====== ✅ 추가재료 선택 섹션 기능 ======
+document.addEventListener("click", (e) => {
+  if (e.target.classList.contains("show-extra-btn")) {
+    const btn = e.target;
+    currentRecipeId = btn.dataset.recipeId;
+
+    // 버튼 dataset에서 재료 받아오기
+    let ingredients = [];
+    try {
+      ingredients = JSON.parse(btn.dataset.ingredients || "[]");
+    } catch (err) {
+      console.error("재료 JSON 파싱 실패:", err, btn.dataset.ingredients);
+    }
+
+    // ✅ recipe-section 그대로 두고, extra-section만 표시
+    const extraSection = document.getElementById("extra-section");
+    const extraIngredientsBox = document.getElementById("extra-ingredients");
+    extraSection.style.display = "block";
+    extraSection.scrollIntoView({ behavior: "smooth" });
+
+    // 칩 생성
+    extraIngredientsBox.innerHTML = "";
+    if (!ingredients || ingredients.length === 0) {
+      extraIngredientsBox.innerHTML = "<p>재료가 없습니다.</p>";
+    } else {
+      ingredients.forEach(ing => {
+        const name = ing.split(" ")[0];
+        extraIngredientsBox.innerHTML += `
+          <label class="chip">
+            <input type="checkbox" class="chip-radio" name="ingredient" value="${name}">
+            <span>${name}</span>
+          </label>
+        `;
+      });
+    }
+  }
+});
+
+
+
+    // 추가재료 없음 → 상세보기
+    const skipBtn = document.getElementById("skip-extra-btn");
+    if (skipBtn) {
+      skipBtn.addEventListener("click", () => {
+        if (currentRecipeId) {
+          window.location.href = `/recipes/${currentRecipeId}/`;
+        } else {
+          alert("먼저 요리할 레시피를 선택해주세요!");
+        }
+      });
+    }
+
+    // 상세보기로 이동
+    $("#go-detail-btn")?.addEventListener("click", () => {
+      if (currentRecipeId) window.location.href = `/recipes/${currentRecipeId}/`;
+      else alert("먼저 요리할 레시피를 선택해주세요!");
+    });
+
+    // 장바구니로 이동
+    $("#go-cart-btn")?.addEventListener("click", () => {
+      if (currentRecipeId) {
+        const selected = [...document.querySelectorAll("input[name=ingredient]:checked")].map(chk => chk.value);
+        const query = selected.length > 0 ? `?extra=${selected.join(",")}` : "";
+        window.location.href = `/cart/${currentRecipeId}/${query}`;
+      } else {
+        alert("먼저 요리할 레시피를 선택해주세요!");
+      }
+    });
+
+  // 카메라 전환 함수
+  async function switchCamera() {
+    currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+    switchCameraBtn.textContent = currentFacingMode === 'environment' ? '📷 전면/후면' : '📷 후면/전면';
+    
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(track => track.stop());
+    }
+    
+    await startCamera();
+  }
+
+  // 카메라 종료 및 결과 표시
+  function stopCameraAndShowResults() {
+    console.log('감지 완료 버튼 클릭');
+    
+    stopCamera();
+    if (websocket) {
+      websocket.close();
+    }
+    
+    if (detectedIngredients.size > 0) {
+      renderIngredientChips(Array.from(detectedIngredients));
+      ingredientButtons.style.display = 'block';
+      ingredientButtons.scrollIntoView({ behavior: 'smooth' });
+      if (mobileActionBar && isMobileView()) {
+        mobileActionBar.style.display = 'none';
+      }
+    } else {
+      alert('인식된 재료가 없습니다. 다시 시도해주세요.');
+      returnToPromo();
+    }
+  }
+  
+    // ✅ 선택 완료 클릭
+  toRecipeBtn.addEventListener('click', async function() {
+    const selectedIngredients = getSelectedIngredients();
+    if (selectedIngredients.length === 0) {
+      alert('재료를 선택해주세요!');
+      return;
+    }
+
+    try {
+      toRecipeBtn.textContent = '레시피 찾는 중...';
+      toRecipeBtn.disabled = true;
+
+      currentPage = 1;
+      const data = await getRecipeRecommendations(selectedIngredients, currentPage);
+
+
+
+      console.log("DEBUG data:", data);
+
+
+
+
+      recipeHeaderText.textContent =
+        `${selectedIngredients.join(', ')}에 대한 추천 레시피 (${data.total_count}개)`;
+
+      renderRecipes(data.recipes);
+      renderPagination(data, selectedIngredients);
+
+      recipeSection.style.display = 'block';
+      recipeSection.scrollIntoView({ behavior: 'smooth' });
+    } catch (error) {
+      console.error('레시피 추천 오류:', error);
+      recipeSection.style.display = 'block';
+      recipeList.innerHTML = '<div class="no-result"><p>레시피를 불러오는 중 오류가 발생했습니다.</p></div>';
+    } finally {
+      toRecipeBtn.textContent = '선택 완료';
+      toRecipeBtn.disabled = false;
+    }
+  });
+
+
+
+  // ==========================================
+  // UI 플로우 및 플로팅 윈도우 함수들 (동일)
+  // ==========================================
+  
+  function showPromoSection() {
+    promoSection.style.display = 'block';
+    cameraSection.style.display = 'none';
+    permissionModal.style.display = 'none';
+    ingredientButtons.style.display = 'none';
+    recipeSection.style.display = 'none';
+    if (mobileActionBar) mobileActionBar.style.display = 'none';
+  }
+  
+  function showPermissionModal() {
+    permissionModal.style.display = 'flex';
+    promoSection.style.display = 'none';
+    if (mobileActionBar) mobileActionBar.style.display = 'none';
+  }
+  
+  function startCameraDetection() {
+    permissionModal.style.display = 'none';
+    cameraSection.style.display = 'block';
+    setTimeout(() => cameraSection.scrollIntoView({ behavior: 'smooth' }), 300);
+    connectWebSocket();
+    if (mobileActionBar && isMobileView()) mobileActionBar.style.display = 'block';
+  }
+  
+  function enterFullscreen() {
+    const cameraWrapper = cameraSection.querySelector('.camera-wrapper');
+    const isMobile = isMobileView();
+    try {
+      if (isMobile) {
+      // 모바일: 네이티브 대신 pseudo-fullscreen 적용
+      document.documentElement.classList.add('mobile-fs');
+      document.body.classList.add('mobile-fs');
+      cameraWrapper.classList.add('mobile-fs');
+      isFullscreenMode = true;
+      if (floatingIngredients) floatingIngredients.style.display = 'block';
+      const ctrls = cameraWrapper.querySelector('.camera-controls');
+      if (ctrls) ctrls.style.display = 'none';
+      if (mobileActionBar) mobileActionBar.style.display = 'none';
+      setTimeout(() => {
+        overlay.width = overlay.clientWidth;
+        overlay.height = overlay.clientHeight;
+        // 가로모드 전체화면에서 플로팅 윈도우 조정
+        adjustFloatingWindowForLandscape();
+      }, 50);
+      return;
+      }
+
+      // 태블릿/데스크톱: 표준 전체화면
+      if (cameraWrapper.requestFullscreen) cameraWrapper.requestFullscreen();
+      else if (cameraWrapper.webkitRequestFullscreen) cameraWrapper.webkitRequestFullscreen();
+      else if (cameraWrapper.mozRequestFullScreen) cameraWrapper.mozRequestFullScreen();
+      isFullscreenMode = true;
+      if (floatingIngredients) floatingIngredients.style.display = 'block';
+      const ctrls = cameraWrapper.querySelector('.camera-controls');
+      if (ctrls) ctrls.style.display = 'none';
+      if (mobileActionBar) mobileActionBar.style.display = 'none';
+      setTimeout(() => {
+        overlay.width = overlay.clientWidth;
+        overlay.height = overlay.clientHeight;
+        // 가로모드 전체화면에서 플로팅 윈도우 조정
+        adjustFloatingWindowForLandscape();
+      }, 50);
+    } catch (error) {
+      alert('전체화면을 지원하지 않는 브라우저입니다.');
+    }
+  }
+  
+  function exitFullscreen() {
+    const cameraWrapper = cameraSection.querySelector('.camera-wrapper');
+    const isMobile = isMobileView();
+    isFullscreenMode = false;
+    
+    if (!isMobile) {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+    } else {
+      // 모바일 pseudo-fullscreen 해제
+      document.documentElement.classList.remove('mobile-fs');
+      document.body.classList.remove('mobile-fs');
+      cameraWrapper.classList.remove('mobile-fs');
+    }
+    
+    floatingIngredients.style.display = 'none';
+    cameraSection.querySelector('.camera-controls').style.display = 'flex';
+    if (mobileActionBar && isMobileView() && cameraSection.style.display !== 'none') {
+      mobileActionBar.style.display = 'block';
+    }
+    
+    // 방향 클래스 다시 확인하여 상태 복원 (가로모드 유지)
+    setTimeout(() => {
+      updateOrientationClass();
+      overlay.width = overlay.clientWidth;
+      overlay.height = overlay.clientHeight;
+      // 박스 위치 보정 로직 재실행
+      if (video.videoWidth && video.videoHeight) {
+        needsRecalculation = true;
+      }
+    }, 150);
+  }
+
+  // iOS Safari 네이티브 비디오 전체화면 종료 이벤트 처리
+  if (video) {
+    video.addEventListener('webkitendfullscreen', function() {
+      isFullscreenMode = false;
+      if (mobileActionBar && isMobileView() && cameraSection && cameraSection.style.display !== 'none') {
+        mobileActionBar.style.display = 'block';
+      }
+    });
+  }
+  
+  // 플로팅 윈도우 재료 업데이트 (문자열 배열 받음)
+  function updateFloatingIngredients(detections) {
+    detections.forEach(ingredient => {
+      if (rejectedIngredients.has(ingredient)) return;
+      if (!document.getElementById(`floating-${ingredient}`)) {
+        addFloatingIngredient(ingredient);
+      }
+    });
+  }
+  
+  function addFloatingIngredient(ingredient) {
+    const ingredientDiv = document.createElement('div');
+    ingredientDiv.id = `floating-${ingredient}`;
+    ingredientDiv.className = 'floating-ingredient-item';
+    ingredientDiv.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.1); border-radius: 10px; animation: slideInRight 0.3s ease;';
+    
+    ingredientDiv.innerHTML = `
+      <span style="color: white; font-size: 14px; flex: 1;">${ingredient}</span>
+      <div style="display: flex; gap: 8px;">
+        <button onclick="selectIngredient('${ingredient}')" style="background: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 15px; cursor: pointer; font-size: 12px; transition: all 0.2s ease;">✅ v</button>
+        <button onclick="rejectIngredient('${ingredient}')" style="background: #f44336; color: white; border: none; padding: 6px 12px; border-radius: 15px; cursor: pointer; font-size: 12px; transition: all 0.2s ease;">❌ x</button>
+      </div>
+    `;
+    if (floatingList) floatingList.appendChild(ingredientDiv);
+  }
+  
+  function selectIngredient(ingredient) {
+    confirmedIngredients.add(ingredient);
+    detectedIngredients.add(ingredient);
+    const el = document.getElementById(`floating-${ingredient}`);
+    if (el) {
+      el.style.background = 'rgba(76, 175, 80, 0.3)';
+      el.style.border = '2px solid #4CAF50';
+      el.querySelectorAll('button').forEach(btn => {
+        btn.style.opacity = '0.5';
+        btn.style.pointerEvents = 'none';
+      });
+    }
+    updateSelectionCount();
+  }
+  
+  function rejectIngredient(ingredient) {
+    rejectedIngredients.add(ingredient);
+    confirmedIngredients.delete(ingredient);
+    detectedIngredients.delete(ingredient);
+    const el = document.getElementById(`floating-${ingredient}`);
+    if (el) {
+      el.style.animation = 'slideOutRight 0.3s ease';
+      setTimeout(() => el.remove(), 300);
+    }
+    updateSelectionCount();
+  }
+  
+  function updateSelectionCount() {
+    const count = confirmedIngredients.size;
+    if (selectedCountSpan) selectedCountSpan.textContent = `${count}개 선택`;
+    if (floatingCompleteBtn) {
+      floatingCompleteBtn.innerHTML = `🚀 선택 완료 (${count}개)`;
+      floatingCompleteBtn.disabled = count === 0;
+      floatingCompleteBtn.style.opacity = count === 0 ? '0.5' : '1';
+    }
+  }
+  
+  function completeFloatingSelection() {
+    if (confirmedIngredients.size === 0) {
+      alert('재료를 선택해주세요!');
+      return;
+    }
+    
+    exitFullscreen();
+    stopCameraAndShowResults(); // 여기에서 카메라/웹소켓이 닫힘
+    
+    const selectedArray = Array.from(confirmedIngredients);
+    renderIngredientChips(selectedArray);
+    if (ingredientButtons) {
+      ingredientButtons.style.display = 'block';
+      setTimeout(() => ingredientButtons.scrollIntoView({ behavior: 'smooth' }), 500);
+    }
+    resetFloatingWindow();
+  }
+  
+  function resetFloatingWindow() {
+    if (floatingList) floatingList.innerHTML = '';
+    confirmedIngredients.clear();
+    rejectedIngredients.clear();
+    updateSelectionCount();
+  }
+  
+  function returnToPromo() {
+    stopCamera();
+    if(websocket) websocket.close();
+    
+    cameraSection.style.display = 'none';
+    promoSection.style.display = 'block';
+    ingredientButtons.style.display = 'none';
+    recipeSection.style.display = 'none';
+    
+    detectedIngredients.clear();
+    confirmedIngredients.clear();
+    rejectedIngredients.clear();
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    
+    setTimeout(() => promoSection.scrollIntoView({ behavior: 'smooth' }), 300);
+    if (mobileActionBar) mobileActionBar.style.display = 'none';
+  }
+  
+  // ==========================================
+  // 이벤트 리스너 설정 (동일)
+  // ==========================================
+  if (startDetectionBtn) startDetectionBtn.addEventListener('click', showPermissionModal);
+  if (allowCameraBtn) allowCameraBtn.addEventListener('click', startCameraDetection);
+  if (cancelCameraBtn) cancelCameraBtn.addEventListener('click', () => {
+    permissionModal.style.display = 'none';
+    promoSection.style.display = 'block';
+  });
+  if (fullscreenBtn) fullscreenBtn.addEventListener('click', enterFullscreen);
+  if (floatingCompleteBtn) floatingCompleteBtn.addEventListener('click', completeFloatingSelection);
+  if (stopCameraBtn) stopCameraBtn.addEventListener('click', stopCameraAndShowResults);
+  if (switchCameraBtn) switchCameraBtn.addEventListener('click', switchCamera);
+  if (returnHomeBtn) returnHomeBtn.addEventListener('click', () => {
+    if (confirm('처음으로 돌아가시겠습니까? 인식된 재료가 모두 삭제됩니다.')) {
+      returnToPromo();
+    }
+  });
+  
+  document.addEventListener('DOMContentLoaded', showPromoSection);
+  window.addEventListener('beforeunload', () => {
+    if (websocket) websocket.close();
+    stopCamera();
+  });
+   // ✅ 정렬 버튼 이벤트 등록
+  document.addEventListener("DOMContentLoaded", function() {
+    const sortMatchBtn = document.getElementById("sort-match");
+    const sortIngredientsBtn = document.getElementById("sort-ingredients");
+
+    async function reloadRecipes() {
+      const selectedIngredients = getSelectedIngredients();
+      if (selectedIngredients.length === 0) return;
+
+      currentPage = 1;
+      const data = await getRecipeRecommendations(selectedIngredients, currentPage);
+      renderRecipes(data.recipes);
+      renderPagination(data, selectedIngredients);
+      recipeHeaderText.textContent =
+        `${selectedIngredients.join(', ')}에 대한 추천 레시피 (${data.total_count}개)`;
+    }
+
+    sortMatchBtn.addEventListener("click", function(e) {
+      e.preventDefault();
+      currentSort = "match";
+      sortMatchBtn.classList.add("active");
+      sortIngredientsBtn.classList.remove("active");
+      reloadRecipes();
+    });
+
+    sortIngredientsBtn.addEventListener("click", function(e) {
+      e.preventDefault();
+      currentSort = "ingredients";
+      sortIngredientsBtn.classList.add("active");
+      sortMatchBtn.classList.remove("active");
+      reloadRecipes();
+    });
+  });
+
+  // ==============================
+  // 모바일 하단 버튼 이벤트 바인딩
+  // ==============================
+  const mobileActionBar = document.getElementById('mobile-camera-actions');
+  const mobileStopBtn = document.getElementById('mobile-stop');
+  const mobileFullscreenBtn = document.getElementById('mobile-fullscreen');
+  const mobileReturnHomeBtn = document.getElementById('mobile-return-home');
+
+  function isMobileView() {
+    return window.matchMedia('(max-width: 480px)').matches;
+  }
+
+  function updateMobileActionBarVisibility() {
+    if (!mobileActionBar) return;
+    const cameraVisible = cameraSection && cameraSection.style.display !== 'none';
+    const selectionVisible = ingredientButtons && ingredientButtons.style.display !== 'none';
+    const recipeVisible = recipeSection && recipeSection.style.display !== 'none';
+    // 인식된 재료/레시피 화면에서는 항상 숨김
+    if (selectionVisible || recipeVisible) {
+      mobileActionBar.style.display = 'none';
+      return;
+    }
+    // 카메라 화면에서만 노출
+    mobileActionBar.style.display = (isMobileView() && cameraVisible) ? 'block' : 'none';
+  }
+
+  if (mobileStopBtn) mobileStopBtn.addEventListener('click', stopCameraAndShowResults);
+  if (mobileFullscreenBtn) mobileFullscreenBtn.addEventListener('click', enterFullscreen);
+  if (mobileReturnHomeBtn) mobileReturnHomeBtn.addEventListener('click', () => {
+    if (confirm('처음으로 돌아가시겠습니까? 인식된 재료가 모두 삭제됩니다.')) {
+      returnToPromo();
+      updateMobileActionBarVisibility();
+    }
+  });
+
+  window.addEventListener('resize', updateMobileActionBarVisibility);
+  document.addEventListener('fullscreenchange', updateMobileActionBarVisibility);
+  document.addEventListener('DOMContentLoaded', updateMobileActionBarVisibility);
+  window.addEventListener('scroll', updateMobileActionBarVisibility, { passive: true });
+
+  (function () {
+    function initMobileMenu() {
+      const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+      const mobileNavMenu = document.getElementById('mobileNavMenu');
+      
+      if (mobileMenuBtn && mobileNavMenu) {
+        mobileMenuBtn.addEventListener('click', function() {
+          mobileMenuBtn.classList.toggle('active');
+          mobileNavMenu.classList.toggle('active');
+        });
+
+        document.addEventListener('click', function(e) {
+          if (!mobileMenuBtn.contains(e.target) && !mobileNavMenu.contains(e.target)) {
+            mobileMenuBtn.classList.remove('active');
+            mobileNavMenu.classList.remove('active');
+          }
+        });
+      }
+    }
+    document.addEventListener('DOMContentLoaded', initMobileMenu);
+  })();
+</script>
+
+</html>

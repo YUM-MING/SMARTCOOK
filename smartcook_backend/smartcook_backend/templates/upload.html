@@ -1,0 +1,203 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SMARTCOOK - 재료 탐색</title>
+
+  <!-- 스타일 -->
+  <link rel="stylesheet" href="{% static 'css/upload.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/resposive_ta_mo.css' %}" />
+  <script src="{% static 'js/upload.js' %}"></script>
+</head>
+<body>
+  <form id="csrf-form" style="display:none;">{% csrf_token %}</form>
+
+  <main>
+    <!-- 네비게이션 -->
+    <div class="main-navbar">
+      <div class="main-nav-left">
+        <a href="{% url 'mainpage' %}" class="logo">SMARTCOOK</a>
+      </div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="main-nav-right">
+        <form method="POST" action="{% url 'logout' %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="logout-button">Logout</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 탭 버튼 -->
+    <div class="btn-group">
+      <a href="{% url 'food_upload' %}" class="btn">음식으로 탐색하기</a>
+      <button class="btn active-btn">재료로 탐색하기</button>
+      <a href="{% url 'live_page' %}" class="btn">실시간으로 탐색하기</a>
+    </div>
+
+    <!-- 업로드 -->
+    <div class="container2" id="ingredient-section">
+      <a href="{% url 'mainpage' %}" class="home-link">← Home</a>
+      <div class="form-box">
+        <label for="file-upload">재료 사진을 업로드하세요</label>
+        <div class="upload-section">
+          <div class="dropdown">
+            <button class="dropdown-btn" id="dropdownToggle">
+              <img src="{% static 'images/file-icon.png' %}" style="width:44px;height:58px;" alt="파일 아이콘" />
+              <span style="font-size:20px;margin-left:10px;"> 파일 선택</span>
+            </button>
+            <div class="dropdown-menu" id="dropdownMenu">
+              <div data-value="device">📂 기기에서</div>
+              <div data-value="gallery">🖼 갤러리에서</div>
+            </div>
+          </div>
+          <input type="file" id="file-upload" accept="image/*" style="display:none;" />
+          <div class="image-preview-box">
+            <img id="preview-image" style="max-width:100%;display:none;border-radius:10px;" alt="업로드 미리보기" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 인식된 재료 -->
+    <section class="recognized" id="ingredient-buttons" style="display:none;">
+      <h4 class="recognized-title">인식된 재료</h4>
+      <form method="get" action="{% url 'search_recipes_by_detected' %}">
+        <div class="chip-box" id="recognized-list">
+          {% if query_list %}
+            {% for ing in query_list %}
+              <label class="chip">
+                <input type="checkbox" name="q" value="{{ ing }}">
+                {{ ing }}
+              </label>
+            {% endfor %}
+          {% else %}
+            <p>아직 인식된 재료가 없습니다.</p>
+          {% endif %}
+        </div>
+        <div class="confirm-wrapper">
+          <button type="button" id="toRecipeBtn" class="confirm-btn">선택 완료</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 검색 결과 -->
+    {% if query or query_list %}
+    <section class="recommend" id="recipe-section">
+      <div class="result-header">
+        <p id="recipe-title">
+          {% if hasRecipes %}
+            "{% if selected_ingredients %}{{ selected_ingredients|join:", " }}{% else %}{{ query }}{% endif %}"에 대한 추천 레시피 ({{ recipes.paginator.count }}개)
+          {% else %}
+            레시피를 찾을 수 없습니다.
+          {% endif %}
+        </p>
+
+        {% if hasRecipes %}
+        <div class="sort-options">
+          <a href="?{% for q in selected_ingredients %}q={{ q }}&{% endfor %}sort=match"
+             class="{% if sort == 'match' %}active{% endif %}">관련도 순</a>
+          <span class="divider">|</span>
+          <a href="?{% for q in selected_ingredients %}q={{ q }}&{% endfor %}sort=ingredients"
+             class="{% if sort == 'ingredients' %}active{% endif %}">재료 적은 순</a>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="recipe-list" id="recipe-list">
+        {% if hasRecipes %}
+          {% for r in recipes %}
+          <div class="recipe-card">
+            <img src="{{ r.image }}" alt="{{ r.title }}">
+            <h5>{{ r.title }}</h5>
+            <h6 style="text-align:center;">재료</h6>
+            <ul style="list-style-type:none;padding-left:0;">
+              {% for i in r.ingredients %}
+                <li>{{ i }}</li>
+              {% endfor %}
+            </ul>
+            {% with "ingredients-"|add:r.id as script_id %}
+              {{ r.ingredients|json_script:script_id }}
+            {% endwith %}
+          <a href="javascript:void(0)" class="btn-category-done show-extra-btn" data-recipe-id="{{ r.id }}">
+            요리하러 가기
+          </a>
+          </div>
+          {% endfor %}
+        {% elif query or query_list %}
+          <div class="no-result">조건에 맞는 레시피가 없습니다.</div>
+        {% endif %}
+      </div>
+
+      {% if hasRecipes and recipes.has_other_pages %}
+        <div class="pagination">
+          {% if recipes.has_previous %}
+            <a href="?{% for q in query_list %}q={{ q }}&{% endfor %}sort={{ sort }}&page={{ recipes.previous_page_number }}" class="page-btn">&lt;</a>
+          {% else %}
+            <span class="page-btn disabled">&lt;</span>
+          {% endif %}
+
+          {% for num in page_range %}
+            {% if recipes.number == num %}
+              <span class="page-btn active">{{ num }}</span>
+            {% else %}
+              <a href="?{% for q in query_list %}q={{ q }}&{% endfor %}sort={{ sort }}&page={{ num }}" class="page-btn">{{ num }}</a>
+            {% endif %}
+          {% endfor %}
+
+          {% if recipes.has_next %}
+            <a href="?{% for q in query_list %}q={{ q }}&{% endfor %}sort={{ sort }}&page={{ recipes.next_page_number }}" class="page-btn">&gt;</a>
+          {% else %}
+            <span class="page-btn disabled">&gt;</span>
+          {% endif %}
+        </div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- ✅ 추가재료 선택 섹션 -->
+    <section class="extra" id="extra-section" style="display:none;">
+      <div class="extra-header">
+        <h4 class="extra-title">추가 재료 선택</h4>
+        <span class="small-text skip-extra" id="skip-extra-btn">추가 재료 없음 →</span>
+      </div>
+
+      <div class="chip-box" id="extra-ingredients"></div>
+
+      <div class="cart-wrapper">
+        <button class="cart-btns" id="go-cart-btn" style="margin-right: 10px;">장바구니로 이동</button>
+        <button class="cart-btns" id="go-detail-btn">레시피 상세보기</button>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="feedback-footer">© SmartCook. All rights reserved.</div>
+
+  <!-- JS -->
+  <script>
+  (function () {
+    function initMobileMenu() {
+      const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+      const mobileNavMenu = document.getElementById('mobileNavMenu');
+      if (mobileMenuBtn && mobileNavMenu) {
+        mobileMenuBtn.addEventListener('click', function() {
+          mobileMenuBtn.classList.toggle('active');
+          mobileNavMenu.classList.toggle('active');
+        });
+        document.addEventListener('click', function(e) {
+          if (!mobileMenuBtn.contains(e.target) && !mobileNavMenu.contains(e.target)) {
+            mobileMenuBtn.classList.remove('active');
+            mobileNavMenu.classList.remove('active');
+          }
+        });
+      }
+    }
+    document.addEventListener('DOMContentLoaded', initMobileMenu);
+  })();
+  </script>
+</body>
+</html>
