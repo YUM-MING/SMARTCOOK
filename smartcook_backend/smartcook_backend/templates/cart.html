@@ -1,0 +1,87 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>장바구니</title>
+  <link rel="stylesheet" href="{% static 'css/upload.css' %}">
+</head>
+<body class="upload cart-page">
+  
+  {% load static %}
+  <div class="main-navbar">
+    <!-- 왼쪽 -->
+    <div class="main-nav-left">
+      <a href="{% url 'mainpage' %}" class="logo">SMARTCOOK</a>
+    </div>
+  
+    <!-- 오른쪽 -->
+    <div class="main-nav-right">
+      <form method="POST" action="{% url 'logout' %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="logout-button">Logout</button>
+      </form>
+    </div>
+  </div>
+  <div class="cart-container">
+    <div>
+
+      <!-- ✅ 세션 모드에 따라 돌아가기 분기 -->
+      <a class="cart-back-link"
+         href="{% if search_mode == 'food' %}
+                  {% url 'food_upload' %}?q={{ search_query }}&sort={{ search_sort }}
+                {% elif search_mode == 'detected' %}
+                  {% url 'search_recipes_by_detected' %}?sort={{ search_sort }}
+                {% else %}
+                  {% url 'food_upload' %}
+                {% endif %}">
+
+        ← 다른 레시피 선택하기
+      </a>
+      
+      <h2>장바구니</h2>
+      <hr>
+
+      <div class="cart-item-grid">
+        {% for ing in ingredients %}
+          <div class="cart-item-wrapper">
+            <div class="cart-item">
+              <span class="cart-item-name">{{ ing }}</span>
+              <div class="cart-btn-group">
+                <button class="cart-btn plus-btn">+</button>
+                <button class="cart-btn minus-btn">-</button>
+                <span class="cart-count">1</span>
+              </div>
+            </div>
+            <img class="cart-trash" src="{% static 'images/cart/trash.png' %}" alt="삭제">
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="cart-go-button-wrapper">
+      <button class="cart-go-button" style="margin-right: 10px;" id="go-coupang" type="button">쿠팡으로 가기</button>
+      <button class="cart-go-button" id="go-detail-btn">레시피 상세보기</button>
+    </div>
+  </div>
+  
+  <script src="{% static 'js/script.js' %}"></script>
+
+  <script>
+document.addEventListener("DOMContentLoaded", () => {
+  const detailBtn = document.getElementById("go-detail-btn");
+  if (detailBtn) {
+    const recipeId = "{{ recipe.id }}";  // views.py에서 넘겨준 recipe 객체
+    detailBtn.addEventListener("click", () => {
+      if (recipeId) {
+        window.location.href = `/recipes/${recipeId}/`;
+      } else {
+        alert("레시피 정보를 불러올 수 없습니다.");
+      }
+    });
+  }
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <!-- 반응형 웹을 위한 viewport 설정 - 디바이스 너비에 맞춰 화면 크기 조정 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SMARTCOOK - 스마트 요리 도우미</title>
+  {% load static %}
+  <!-- 기본 웹 스타일 -->
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  <!-- 태블릿/모바일 반응형 스타일 -->
+  <link rel="stylesheet" href="{% static 'css/resposive_ta_mo.css' %}">
+</head>
+<body>
+  <script src="{% static 'js/script.js' %}"></script>
+ <!-- 반응형 네비게이션 바 -->
+  <div class="main-navbar">
+    <div class="main-nav-left">
+      <!-- 로고 -->
+      <a href="{% url 'mainpage' %}" class="main-logo" style="color: #76b5c5;">SMARTCOOK</a>
+      
+      <!-- 데스크톱/태블릿용 메뉴 링크 -->
+      <div class="main-nav-links">
+        <a href="{% url 'food_upload' %}" class="main-active">Recipe</a>
+        <a href="{% url 'upload' %}">Picture</a>
+        <a href="{% url 'live_page' %}">Realtime</a>
+        {% if user.is_authenticated %}
+        <a href="{% url 'menu2' %}">Mypage</a>
+        {% endif %}
+      </div>
+    </div>
+    
+    <!-- 모바일용 햄버거 메뉴 버튼 -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    
+    <div class="main-nav-right">
+      {% if user.is_authenticated %}
+        <form method="POST" action="{% url 'logout' %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="main-navbar-logout-btn">Logout</button>
+        </form>
+      {% else %}
+        <a href="{% url 'login' %}" class="main-login-button">Login</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 모바일용 드롭다운 메뉴 -->
+  <div class="mobile-nav-menu" id="mobileNavMenu">
+    <a href="{% url 'food_upload' %}">Recipe</a>
+    <a href="{% url 'upload' %}">Picture</a>
+    <a href="{% url 'live_page' %}">Realtime</a>
+    {% if user.is_authenticated %}
+    <a href="{% url 'menu2' %}">Mypage</a>
+    {% endif %}
+  </div>
+
+  
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>SMARTCOOK</h1>
+    <a href="#about" class="scroll-down">↓ scroll down</a>
+  </section>
+
+  <!-- Content -->
+  <section id="about" class="content">
+    <h2 style="color: #76b5c5;">SMARTCOOK</h2>
+  <p>
+    SMARTCOOK은 비싼 스마트 냉장고가 없어도 사용할 수 있는 개인 맞춤형 요리 도우미입니다. 
+    기존에 쓰던 일반 냉장고 속 재료를 꺼내 사진으로 찍어 업로드하기만 하면, 
+    AI가 자동으로 재료를 분석하고 지금 바로 만들 수 있는 레시피를 추천합니다. 
+    초보자도 단계별 가이드를 따라 손쉽게 요리를 완성할 수 있습니다.<br/>
+  <br/>
+  </p>
+  <p>
+    SMARTCOOK은 단순히 레시피를 제안하는 것에 그치지 않고, 
+    사용자의 건강 상태(예: 당뇨, 고혈압), 선호·비선호 재료까지 반영해 
+    더 정교한 맞춤형 추천을 제공합니다. 
+    또한, 실시간 카메라 인식을 통해 냉장고 속 재료를 자동으로 인식할 수 있어 
+    사용자가 직접 하나하나 입력하지 않아도 편리하게 요리를 준비할 수 있습니다.<br/>
+  <br/>
+  </p>
+  <p>
+    나만의 요리사가 되어주는 SMARTCOOK은 식사를 준비하는 시간을 즐거운 경험으로 바꿔줍니다. 
+    바쁜 일상 속에서도 균형 잡힌 영양과 새로운 요리 경험을 얻을 수 있으며, 
+    집에 있는 재료만으로도 새로운 요리를 즐길 수 있습니다. 
+    지금 바로 SMARTCOOK과 함께, 평범한 냉장고를 스마트한 요리 파트너로 바꿔보세요!
+  <br/>
+  </p>
+    <div class="about-btn-box">
+    <a href="{% url 'food_upload' %}" target="_blank" class="about-btn">요리하러 바로가기</a>
+    </div>
+  </section>
+  <!-- 두 번째 컬러 블록 섹션 -->
+  <section id="promo" class="promo-section">
+    <div class="promo-content">
+      <h2>SMARTCOOK 사용법</h2>
+      <p>영상으로 쉽게 확인하세요</p>
+
+      <!-- mp4 영상 -->
+      <div class="video-box">
+        <video controls autoplay muted loop>
+          <source src="{% static 'videos/demo.mp4' %}" type="video/mp4">
+          브라우저가 영상을 지원하지 않습니다.
+        </video>
+      </div>
+    </div>
+  </section>
+
+<!-- 세 번째 특징 영상 섹션 -->
+<section id="features-video" class="promo-section" style="background-color:#f9f9f9;">
+  <div class="promo-content">
+    <h2 style="color: #76b5c5;">SMARTCOOK 특징</h2>
+    <p style="color: #76b5c5;">비싼 스마트 냉장고 없이, 누구나 쉽게!</p>
+
+    <!-- lazy video -->
+    <div class="video_container video_container_type_none jt-lazyload-vid" style="max-width:1200px; margin:0 auto;">
+      <div class="video_wrap" style="padding-top:56.25%;"> <!-- 16:9 비율 -->
+        <div class="video_wrap_inner" data-jt-lazy="{% static 'videos/features.mp4' %}"></div>
+      </div>
+      <div class="video_poster">
+        <span class="video_poster_bg" 
+              data-jt-lazy="{% static 'images/features.png' %}"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+   <div class="feedback-footer">
+    © SmartCook. All rights reserved.
+  </div>
+</body>
+
+
+<script>
+(function () {
+  // 비디오 lazy loading 초기화 함수
+  function initLazyVideos() {
+    document.querySelectorAll('.video_container').forEach(container => {
+      const wrap = container.querySelector('.video_wrap_inner');
+      const src = wrap && wrap.getAttribute('data-jt-lazy');
+      if (!src) return;
+
+      // video 엘리먼트 생성 및 속성 설정
+      const video = document.createElement('video');
+      video.setAttribute('preload', 'metadata');
+      video.setAttribute('muted', '');
+      video.setAttribute('playsinline', '');
+      video.setAttribute('autoplay', '');
+      video.setAttribute('loop', '');
+      video.muted = true;
+
+      const source = document.createElement('source');
+      source.src = src;
+      source.type = 'video/mp4';
+      video.appendChild(source);
+      wrap.appendChild(video);
+
+      // 포스터 이미지 설정
+      const posterBg = container.querySelector('.video_poster_bg');
+      const posterSrc = posterBg && posterBg.getAttribute('data-jt-lazy');
+      if (posterSrc) posterBg.style.backgroundImage = `url('${posterSrc}')`;
+
+      // 비디오 재생 시 포스터 숨김 처리
+      const play = () => {
+        video.play().catch(() => {});
+        container.classList.add('is-playing');
+      };
+      video.addEventListener('canplay', play, { once: true });
+      setTimeout(play, 120); // Safari 브라우저 호환성을 위한 지연
+    });
+  }
+
+  // 모바일 햄버거 메뉴 토글 기능
+  function initMobileMenu() {
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobileNavMenu = document.getElementById('mobileNavMenu');
+    
+    if (mobileMenuBtn && mobileNavMenu) {
+      mobileMenuBtn.addEventListener('click', function() {
+        // 햄버거 버튼 애니메이션 토글
+        mobileMenuBtn.classList.toggle('active');
+        // 모바일 메뉴 표시/숨김 토글
+        mobileNavMenu.classList.toggle('active');
+      });
+
+      // 메뉴 외부 클릭 시 메뉴 닫기
+      document.addEventListener('click', function(e) {
+        if (!mobileMenuBtn.contains(e.target) && !mobileNavMenu.contains(e.target)) {
+          mobileMenuBtn.classList.remove('active');
+          mobileNavMenu.classList.remove('active');
+        }
+      });
+    }
+  }
+
+  // 로그인 체크 함수
+  function checkLoginAndRedirect(url) {
+    {% if user.is_authenticated %}
+      window.location.href = url;
+    {% else %}
+      window.location.href = '/login/';
+    {% endif %}
+  }
+
+  // DOM 로드 완료 시 초기화 함수들 실행
+  document.addEventListener('DOMContentLoaded', function() {
+    initLazyVideos();
+    initMobileMenu();
+    
+    // 네비게이션 링크에 로그인 체크 추가
+    const navLinks = document.querySelectorAll('.main-nav-links a, .mobile-nav-menu a');
+    navLinks.forEach(link => {
+      if (link.href.includes('food_upload') || link.href.includes('upload') || link.href.includes('live')) {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          checkLoginAndRedirect(this.href);
+        });
+      }
+    });
+  });
+})();
+</script>
+
+
+
+</html>
+
